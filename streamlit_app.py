@@ -123,7 +123,7 @@ default_countries = [
     'Korea, Rep.', 'Malaysia', 'Thailand'
 ]
 st.set_page_config(page_title="TGP Dashboard", layout="wide")
-st.title("Digital Reach & Financial Access Dashboard for PayNet Malaysia by Team OnzLa")
+st.title("Digital Reach & Financial Access Dashboard for PayNet Malaysia")
 
 # Create a region filter
 regions = ['All'] + sorted(dim_country_df['region'].dropna().unique())
