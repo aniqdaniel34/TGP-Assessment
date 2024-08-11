@@ -1,21 +1,30 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+import plotly.express as px
+import boto3
+import io
 
-def clean_column_names(df_list):
-    """
-    This function takes a list of DataFrames as input, converts column names to lowercase, 
-    and replaces spaces between characters with underscores for each DataFrame in the list.
-    
-    Parameters:
-    df_list (list of pd.DataFrame): The list of DataFrames to be processed.
-    
-    Returns:
-    list of pd.DataFrame: The list of DataFrames with cleaned column names.
-    """
+def extract_data(file_keys):
+    s3_client = boto3.client('s3',
+                            aws_access_key_id = 'AKIASVQKHKTTRJSXZN4V', 
+                            aws_secret_access_key= '8ZlAby+DXcDJfCXxvqwDnJsUJ5Rmp4U3CR+EiVCv')
+    BUCKET_NAME = 'tgp-group-assesssment' # replace with your bucket name
+    dfs = []
+    for file_key in file_keys:
+        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=f"{file_key}.csv")
+        csv_content = response['Body'].read().decode('utf-8')
+        df = pd.read_csv(io.StringIO(csv_content))
+        dfs.append(df)
+    return dfs
+
+def preprocess_df(df_list):
     cleaned_dfs = []
     for df in df_list: 
-        df.columns = df.columns.str.lower().str.replace(r'(?<=\S) (?=\S)', '_', regex=True)
+        df = df[['country.value', 'date', 'value']]
+        df = df.rename(columns={"country.value": "country_name", "date": "year"})
+        df['year'] = pd.to_numeric(df['year'], errors='coerce')
+        df = df.dropna(subset=['year'])
         cleaned_dfs.append(df)
     return cleaned_dfs
 
@@ -35,94 +44,51 @@ def join_with_dim_country(df_list, dim_country_df):
     for df in df_list:
         # Perform the left join
         joined_df = pd.merge(df, dim_country_df, how='left', left_on='country_name', right_on='tablename')
+        joined_df = joined_df.drop(columns=['unnamed:_4'])
+
         joined_dfs.append(joined_df)
     return joined_dfs
 
-urban_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_SP.URB.TOTL.IN.ZS_DS2_en_csv_v2_2789503.csv',skiprows=4)
-urban_df =urban_df.drop(columns = ['Unnamed: 68'])
+file_keys = ['UrbanArea','IndividualsUsingInternet','FixedBroadbandSubs','MobileCellularSubs','AccountOwnershipAll',
+             'AccountOwnershipYoung','AccountOwnershipOld','PrimaryEducation','SecondaryEducation','Poorest40','Richest60',
+             'AccessFI','Penetration','DimCountry']
 
-internet_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_IT.NET.USER.ZS_DS2_en_csv_v2_2789860.csv',skiprows=4)
-internet_df =internet_df.drop(columns = ['Unnamed: 68'])
+dfs = extract_data(file_keys)
+urban_df = dfs[0]
+internet_df = dfs[1]
+broadband_df = dfs[2]
+cellular_df = dfs[3]
+fi_df = dfs[4]
+fi_young_df = dfs[5]
+fi_old_df = dfs[6]
+fi_primary_df = dfs[7]
+fi_secondary_df = dfs[8]
+fi_poor_df = dfs[9]
+fi_rich_df = dfs[10]  
+final_access_df = dfs[11]
+atm_bank_df = dfs[12]
+dim_country_df = dfs[13]
 
-broadband_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_IT.NET.BBND.P2_DS2_en_csv_v2_2836660.csv',skiprows=4)
-broadband_df =broadband_df.drop(columns = ['Unnamed: 68'])
-
-cellular_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_IT.CEL.SETS.P2_DS2_en_csv_v2_2809477.csv',skiprows=4)
-cellular_df =cellular_df.drop(columns = ['Unnamed: 68'])
-
-fi_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_FX.OWN.TOTL.ZS_DS2_en_csv_v2_2819275.csv', skiprows=4)
-fi_df = fi_df.drop(columns=['Unnamed: 68'])
-
-
-fi_young_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_FX.OWN.TOTL.YG.ZS_DS2_en_csv_v2_2912133.csv', skiprows=4)
-fi_young_df = fi_young_df.drop(columns=['Unnamed: 68'])
-
-fi_old_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_FX.OWN.TOTL.OL.ZS_DS2_en_csv_v2_2992411.csv',skiprows=4)
-fi_old_df = fi_old_df.drop(columns=['Unnamed: 68'])
-
-fi_primary_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_FX.OWN.TOTL.PL.ZS_DS2_en_csv_v2_2911163.csv',skiprows=4)
-fi_primary_df = fi_primary_df.drop(columns=['Unnamed: 68'])
-
-fi_secondary_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_FX.OWN.TOTL.SO.ZS_DS2_en_csv_v2_2912139.csv',skiprows=4)
-fi_secondary_df = fi_secondary_df.drop(columns=['Unnamed: 68'])
-
-fi_rich_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_FX.OWN.TOTL.60.ZS_DS2_en_csv_v2_2876757.csv', skiprows=4)
-fi_rich_df = fi_rich_df.drop(columns=['Unnamed: 68'])
-
-fi_poor_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/API_FX.OWN.TOTL.40.ZS_DS2_en_csv_v2_2913281.csv', skiprows=4)
-fi_poor_df = fi_poor_df.drop(columns=['Unnamed: 68'])
-
-dim_country_df = pd.read_csv('/content/drive/MyDrive/TGP_Assessment/Metadata_Country_API_IT.NET.USER.ZS_DS2_en_csv_v2_2789860.csv')
-dim_country_df = dim_country_df.drop(columns=['Unnamed: 5','Country Code'])
 dim_country_df.columns = dim_country_df.columns.str.lower().str.replace(r'(?<=\S) (?=\S)', '_', regex=True)
-
-xls = pd.ExcelFile('/content/drive/MyDrive/TGP_Assessment/prr_data_for_website_0.xls')
-dfs = {sheet_name: pd.read_excel(xls, sheet_name, skiprows=3) for sheet_name in xls.sheet_names}
-access_df = dfs['Table A.1']
-access_df.head()
-
-# Assume df is your DataFrame
-
-# Step 1: Drop the 'Unnamed: 0' column
-access_df = access_df.drop(columns=['Unnamed: 0'])
-
-# Step 2: Combine 'Unnamed: 1', 'Unnamed: 4', and 'Unnamed: 7' into one column under new rows
-df_combined_1 = pd.concat([access_df['Unnamed: 1'], access_df['Unnamed: 4'], access_df['Unnamed: 7']], ignore_index=True).dropna().reset_index(drop=True)
-df_combined_1.name = 'country_name'  # Naming the new column
-
-# Step 3: Combine 'Unnamed: 2', 'Unnamed: 5', and 'Unnamed: 8' into one column under new rows
-df_combined_2 = pd.concat([access_df['Unnamed: 2'], access_df['Unnamed: 5'], access_df['Unnamed: 8']], ignore_index=True).dropna().reset_index(drop=True)
-df_combined_2.name = 'survey'  # Naming the new column
-
-# Step 4: Combine 'Percent with access', 'Percent with access.1', and 'Percent with access.2' into one column under new rows
-df_combined_percent = pd.concat([access_df['Percent with access'], access_df['Percent with access.1'], access_df['Percent with access.2']], ignore_index=True).dropna().reset_index(drop=True)
-df_combined_percent.name = 'Percent_with_access'  # Naming the new column
-
-# Step 5: Combine the three new columns into a final DataFrame
-final_access_df = pd.DataFrame({
-    'country_name': df_combined_1,
-    'survey': df_combined_2,
-    'Percent_with_access': df_combined_percent
-})
 for col in final_access_df.columns:
     if final_access_df[col].dtype == 'object':  # Check if the column is of type object (string)
         final_access_df[col] = final_access_df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
-# Display the resulting DataFrame
-final_access_df.head()
 
-atm_bank_df = dfs['Table A.3']
-atm_bank_df.head()
-
-atm_bank_df = atm_bank_df.drop(columns=['Unnamed: 0'])
-atm_bank_df = atm_bank_df.rename(columns={"Unnamed: 1": "country_name"})
 for col in atm_bank_df.columns:
     if atm_bank_df[col].dtype == 'object':  # Check if the column is of type object (string)
         atm_bank_df[col] = atm_bank_df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
-atm_bank_df.head()
 
-df_list = [urban_df, internet_df, broadband_df, cellular_df, fi_young_df, fi_df, fi_old_df, fi_primary_df, fi_secondary_df, fi_rich_df, fi_poor_df, final_access_df, atm_bank_df]
-cleaned_dfs = clean_column_names(df_list)
-join_dfs = join_with_dim_country(cleaned_dfs, dim_country_df)
+final_access_df['percent_with_access'] = pd.to_numeric(final_access_df['percent_with_access'], downcast='integer')
+atm_bank_df['geographic_branch_penetration'] = pd.to_numeric(atm_bank_df['geographic_branch_penetration'], downcast='float')
+atm_bank_df['demographic_branch_penetration'] = pd.to_numeric(atm_bank_df['demographic_branch_penetration'], downcast='float')
+atm_bank_df['geographic_atm_penetration'] = pd.to_numeric(atm_bank_df['geographic_atm_penetration'], downcast='float')
+atm_bank_df['geographic_atm_penetration'] = pd.to_numeric(atm_bank_df['demographic_atm_penetration'], downcast='float')
+
+df_list = [urban_df, internet_df, broadband_df, cellular_df, fi_young_df, fi_df, fi_old_df, fi_primary_df, fi_secondary_df, fi_rich_df, fi_poor_df]
+clean_dfs = preprocess_df(df_list)
+clean_dfs.append(final_access_df)
+clean_dfs.append(atm_bank_df)
+join_dfs = join_with_dim_country(clean_dfs, dim_country_df)
 
 urban_df = join_dfs[0]
 internet_df = join_dfs[1]
@@ -138,111 +104,23 @@ fi_poor_df = join_dfs[10]
 final_access_df = join_dfs[11]
 atm_bank_df = join_dfs[12]
 
-urban_long_df = urban_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='urban_population_percentage')
-
-# Convert 'year' to numeric
-urban_long_df['year'] = pd.to_numeric(urban_long_df['year'], errors='coerce')
-urban_long_df = urban_long_df.dropna(subset=['year'])
-
-internet_long_df = internet_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='internet_percentage')
-
-# Convert 'year' to numeric
-internet_long_df['year'] = pd.to_numeric(internet_long_df['year'], errors='coerce')
-internet_long_df = internet_long_df.dropna(subset=['year'])
-
-broadband_long_df = broadband_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='broadband_percentage')
-
-# Convert 'year' to numeric
-broadband_long_df['year'] = pd.to_numeric(broadband_long_df['year'], errors='coerce')
-broadband_long_df = broadband_long_df.dropna(subset=['year'])
-
-
-cellular_long_df = cellular_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='cellular_percentage')
-
-# Convert 'year' to numeric
-cellular_long_df['year'] = pd.to_numeric(cellular_long_df['year'], errors='coerce')
-cellular_long_df = cellular_long_df.dropna(subset=['year'])
-
-fi_long_df = fi_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='fi_percentage')
-
-# Convert 'year' to numeric
-fi_long_df['year'] = pd.to_numeric(fi_long_df['year'], errors='coerce')
-fi_long_df = fi_long_df.dropna(subset=['year'])
-
-fi_old_long_df = fi_old_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='fi_old_percentage')
-
-# Convert 'year' to numeric
-fi_old_long_df['year'] = pd.to_numeric(fi_old_long_df['year'], errors='coerce')
-fi_old_long_df = fi_old_long_df.dropna(subset=['year'])
-
-fi_young_long_df = fi_young_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='fi_young_percentage')
-
-# Convert 'year' to numeric
-fi_young_long_df['year'] = pd.to_numeric(fi_young_long_df['year'], errors='coerce')
-fi_young_long_df = fi_young_long_df.dropna(subset=['year'])
-
-fi_primary_long_df = fi_primary_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='fi_primary_percentage')
-
-# Convert 'year' to numeric
-fi_primary_long_df['year'] = pd.to_numeric(fi_primary_long_df['year'], errors='coerce')
-fi_primary_long_df = fi_primary_long_df.dropna(subset=['year'])
-
-fi_secondary_long_df = fi_secondary_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='fi_secondary_percentage')
-
-# Convert 'year' to numeric
-fi_secondary_long_df['year'] = pd.to_numeric(fi_secondary_long_df['year'], errors='coerce')
-fi_secondary_long_df = fi_secondary_long_df.dropna(subset=['year'])
-
-fi_poor_long_df = fi_poor_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='fi_poor_percentage')
-
-# Convert 'year' to numeric
-fi_poor_long_df['year'] = pd.to_numeric(fi_poor_long_df['year'], errors='coerce')
-fi_poor_long_df = fi_poor_long_df.dropna(subset=['year'])
-
-fi_rich_long_df = fi_rich_df.melt(id_vars=['country_name', 'region', 'incomegroup'], 
-                              value_vars=[str(year) for year in range(1960, 2023)], 
-                              var_name='year', 
-                              value_name='fi_rich_percentage')
-
-# Convert 'year' to numeric
-fi_rich_long_df['year'] = pd.to_numeric(fi_rich_long_df['year'], errors='coerce')
-fi_rich_long_df = fi_rich_long_df.dropna(subset=['year'])
+urban_df = urban_df.rename(columns={"value": "urban_population_percentage"})
+internet_df = internet_df.rename(columns={"value": "internet_percentage"})
+broadband_df = broadband_df.rename(columns={"value": "broadband_percentage"})
+cellular_df = cellular_df.rename(columns={"value": "cellular_percentage"})
+fi_df = fi_df.rename(columns={"value": "fi_percentage"})
+fi_young_df = fi_young_df.rename(columns={"value": "fi_young_percentage"})
+fi_old_df = fi_old_df.rename(columns={"value": "fi_old_percentage"})
+fi_primary_df = fi_primary_df.rename(columns={"value": "fi_primary_percentage"})
+fi_secondary_df = fi_secondary_df.rename(columns={"value": "fi_secondary_percentage"})
+fi_rich_df = fi_rich_df.rename(columns={"value": "fi_rich_percentage"})
+fi_poor_df = fi_poor_df.rename(columns={"value": "fi_poor_percentage"})
 
 # Default values
 default_region = 'East Asia & Pacific'
 default_countries = [
-    'Australia', 'China', 'Hong Kong SAR, China', 'Indonesia', 'Japan', 
-    'Korea, Rep.', 'Malaysia', 'Singapore', 'Thailand'
+    'China', 'Hong Kong SAR, China', 'Indonesia', 'Japan', 
+    'Korea, Rep.', 'Malaysia', 'Thailand'
 ]
 st.set_page_config(page_title="TGP Dashboard", layout="wide")
 
@@ -261,18 +139,18 @@ selected_countries = st.multiselect('Select Countries', filtered_dim_country_df[
 
 # Filter the DataFrame based on the selected countries
 if selected_countries:
-    filtered_urban_df = urban_long_df[urban_long_df['country_name'].isin(selected_countries)]
-    filtered_internet_df = internet_long_df[internet_long_df['country_name'].isin(selected_countries)]
-    filtered_broadband_df = broadband_long_df[broadband_long_df['country_name'].isin(selected_countries)]
-    filtered_cellular_df = cellular_long_df[cellular_long_df['country_name'].isin(selected_countries)]
-    filtered_fi_df = fi_long_df[fi_long_df['country_name'].isin(selected_countries)]
-    filtered_fi_old_df = fi_old_long_df[fi_old_long_df['country_name'].isin(selected_countries)]
-    filtered_fi_young_df = fi_young_long_df[fi_young_long_df['country_name'].isin(selected_countries)]
-    filtered_fi_primary_df = fi_primary_long_df[fi_primary_long_df['country_name'].isin(selected_countries)]
-    filtered_fi_secondary_df = fi_secondary_long_df[fi_secondary_long_df['country_name'].isin(selected_countries)]
-    filtered_fi_poor_df = fi_poor_long_df[fi_poor_long_df['country_name'].isin(selected_countries)]
-    filtered_fi_rich_df = fi_rich_long_df[fi_rich_long_df['country_name'].isin(selected_countries)]
-
+    filtered_urban_df = urban_df[urban_df['country_name'].isin(selected_countries)]
+    filtered_internet_df = internet_df[internet_df['country_name'].isin(selected_countries)]
+    filtered_broadband_df = broadband_df[broadband_df['country_name'].isin(selected_countries)]
+    filtered_cellular_df = cellular_df[cellular_df['country_name'].isin(selected_countries)]
+    filtered_fi_df = fi_df[fi_df['country_name'].isin(selected_countries)]
+    filtered_fi_old_df = fi_old_df[fi_old_df['country_name'].isin(selected_countries)]
+    filtered_fi_young_df = fi_young_df[fi_young_df['country_name'].isin(selected_countries)]
+    filtered_fi_primary_df = fi_primary_df[fi_primary_df['country_name'].isin(selected_countries)]
+    filtered_fi_secondary_df = fi_secondary_df[fi_secondary_df['country_name'].isin(selected_countries)]
+    filtered_fi_poor_df = fi_poor_df[fi_poor_df['country_name'].isin(selected_countries)]
+    filtered_fi_rich_df = fi_rich_df[fi_rich_df['country_name'].isin(selected_countries)]
+    filtered_atm_bank_df = atm_bank_df[atm_bank_df['country_name'].isin(selected_countries)]
 else:
     st.write("Please select at least one country.")
     filtered_urban_df = pd.DataFrame()  # Empty DataFrame if no country is selected
@@ -286,13 +164,15 @@ else:
     filtered_fi_secondary_df = pd.DataFrame()  # Empty DataFrame if no country is selected
     filtered_fi_poor_df = pd.DataFrame()  # Empty DataFrame if no country is selected
     filtered_fi_rich_df = pd.DataFrame()  # Empty DataFrame if no country is selected
+    filtered_atm_bank_df = pd.DataFrame()  # Empty DataFrame if no country is selected
 
 
 # Create a slider to select the year range
+# Create a slider to select the year range
 if not filtered_urban_df.empty:
-    year_range = st.slider('Select Year Range', min_value=int(urban_long_df['year'].min()), max_value=int(urban_long_df['year'].max()), value=(int(urban_long_df['year'].min()), int(urban_long_df['year'].max())))
-    malaysia_internet_df = internet_long_df[internet_long_df['country_name'] == 'Malaysia']
-    malaysia_fi_df = fi_long_df[fi_long_df['country_name'] == 'Malaysia']
+    year_range = st.slider('Select Year Range', min_value=int(urban_df['year'].min()), max_value=2022, value=(int(urban_df['year'].min()), 2022))
+    malaysia_internet_df = internet_df[internet_df['country_name'] == 'Malaysia']
+    malaysia_fi_df = fi_df[fi_df['country_name'] == 'Malaysia']
 
     # Filter the DataFrame based on the selected year range
     filtered_urban_df = filtered_urban_df[(filtered_urban_df['year'] >= year_range[0]) & (filtered_urban_df['year'] <= year_range[1])]
@@ -415,7 +295,7 @@ if not filtered_urban_df.empty:
         column='country_name:N',  # Separate columns for each country
         tooltip=['country_name', 'year', 'fi_primary_percentage']  # Show details on hover
     ).properties(
-        title='Account Ownership for Individuals with Primary Education or Lower (Age 25+)'
+        title='Account Ownership for Individuals with Primary Education or Lower'
     )
 
     fi_secondary_chart = alt.Chart(filtered_fi_secondary_df).mark_bar().encode(
@@ -425,7 +305,7 @@ if not filtered_urban_df.empty:
         column='country_name:N',  # Separate columns for each country
         tooltip=['country_name', 'year', 'fi_secondary_percentage']  # Show details on hover
     ).properties(
-        title='Account Ownership for Individuals with Secondary Education or Higher (Age 25+)'
+        title='Account Ownership for Individuals with Secondary Education or Higher'
     )
 
     fi_poor_chart = alt.Chart(filtered_fi_poor_df).mark_bar().encode(
@@ -450,7 +330,7 @@ if not filtered_urban_df.empty:
 
     # Calculate the width dynamically
     num_years = len(filtered_fi_df['year'].unique())
-    bar_width = 10  # Desired bar width
+    bar_width = 14  # Desired bar width
     chart_width = num_years * bar_width
 
     # Combine separate columns into the same x-axis
@@ -501,6 +381,69 @@ if not filtered_urban_df.empty:
     ).properties(
         width = 58  # Width of each bar
     )
+
+    # Create bar charts using Altair
+    geo_branch_chart = alt.Chart(filtered_atm_bank_df).mark_bar().encode(
+        x=alt.X('country_name:N', title='Country'),
+        y=alt.Y('geographic_branch_penetration:Q', title='per 1000 Square Kilometer'),
+        color='country_name:N'
+    ).properties(
+        title='Geographic Branch Penetration'
+    )
+
+    demo_branch_chart = alt.Chart(filtered_atm_bank_df).mark_bar().encode(
+        x=alt.X('country_name:N', title='Country'),
+        y=alt.Y('demographic_branch_penetration:Q', title='per 100,000 people'),
+        color='country_name:N'
+    ).properties(
+        title='Demographic Branch Penetration'
+    )
+
+    # Create bar charts using Altair
+    geo_atm_chart = alt.Chart(filtered_atm_bank_df).mark_bar().encode(
+        x=alt.X('country_name:N', title='Country'),
+        y=alt.Y('geographic_atm_penetration:Q', title='per 1000 Square Kilometer'),
+        color='country_name:N'
+    ).properties(
+        title='Geographic ATM Penetration'
+    )
+
+    demo_atm_chart = alt.Chart(filtered_atm_bank_df).mark_bar().encode(
+        x=alt.X('country_name:N', title='Country'),
+        y=alt.Y('demographic_atm_penetration:Q', title='per 100,000 people'),
+        color='country_name:N'
+    ).properties(
+        title='Demographic ATM Penetration'
+    )
+
+    # Combine separate columns into the same x-axis
+    geo_branch_chart = geo_branch_chart.configure_facet(
+        spacing=7
+    ).properties(
+        width = 60  # Width of each bar
+    )
+
+    # Combine separate columns into the same x-axis
+    demo_branch_chart = demo_branch_chart.configure_facet(
+        spacing=7
+    ).properties(
+        width = 60  # Width of each bar
+    )
+
+    # Combine separate columns into the same x-axis
+    geo_atm_chart = geo_atm_chart.configure_facet(
+        spacing=7
+    ).properties(
+        width = 60  # Width of each bar
+    )
+
+    # Combine separate columns into the same x-axis
+    demo_atm_chart = demo_atm_chart.configure_facet(
+        spacing=7
+    ).properties(
+        width = 60  # Width of each bar
+    )
+
 
     col1, col2, col3 = st.columns([1, 1, 2]) 
     with col1:
@@ -567,6 +510,74 @@ if not filtered_urban_df.empty:
     with col2:
       st.altair_chart(fi_rich_chart, use_container_width=False)
 
+    # Load geographic data for countries (GeoJSON file)
+    geojson_url = 'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json'
 
+    # Create the choropleth map with a continuous color scale
+    fig = px.choropleth(
+        final_access_df,
+        geojson=geojson_url,
+        locations='country_name',
+        featureidkey="properties.name",  # Match GeoJSON 'name' property to DataFrame 'country_name'
+        color='percent_with_access',
+        color_continuous_scale='YlOrRd',  # Use a continuous heatmap color scale
+        range_color=[0, 100],  # Set the color scale range to match percentage values
+        #projection='natural earth',
+        title='Composite Measure of Access to Financial Services'
+    )
 
+    # Enhance the map's appearance
+    fig.update_geos(
+        showcoastlines=True,
+        coastlinecolor="Black",
+        showland=True,
+        landcolor="lightgray",
+        showocean=True,
+        oceancolor="lightblue",
+        showlakes=True,
+        lakecolor="lightblue",
+        showrivers=True,
+        rivercolor="blue"
+    )
 
+    # Update layout for better aesthetics and ensure continuous colorbar
+    fig.update_layout(
+        margin={"r":0,"t":50,"l":0,"b":0},
+        coloraxis_colorbar={
+            'title': 'Access Level (%)',
+            'thickness': 15,
+            'len': 0.5,
+            'outlinewidth': 1,
+            'outlinecolor': 'black',
+            'ticks': 'outside',
+            'tickvals': [0, 20, 40, 60, 80, 100],  # Keep ticks to mark significant levels
+            'ticktext': ['0', 'Low', 'Moderate', 'High', 'Very High'],
+            'showticklabels': True,
+        }
+    )
+
+    # Ensure colorbar is continuous
+    fig.update_coloraxes(colorbar=dict(
+        title="Access Level (%)",
+        tickvals=[0, 20, 40, 60, 80, 100],  # Ticks still reflect key points
+        ticktext=['0', 'Low', 'Moderate', 'High', 'Very High'],
+        lenmode="fraction",
+        len=0.75,  # Adjust length of the colorbar
+        thickness=20,  # Adjust thickness of the colorbar
+    ))
+
+    # Display the figure in Streamlit
+    st.plotly_chart(fig, use_container_width=True)
+
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])     
+    with col1:
+      st.altair_chart(geo_branch_chart, use_container_width=True)
+    
+    with col2:
+      st.altair_chart(demo_branch_chart, use_container_width=True)
+
+    with col3:
+      st.altair_chart(demo_atm_chart, use_container_width=True)
+
+    with col4:
+      st.altair_chart(demo_atm_chart, use_container_width=True)
