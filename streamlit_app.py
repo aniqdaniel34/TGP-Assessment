@@ -82,7 +82,7 @@ final_access_df['percent_with_access'] = pd.to_numeric(final_access_df['percent_
 atm_bank_df['geographic_branch_penetration'] = pd.to_numeric(atm_bank_df['geographic_branch_penetration'], downcast='float')
 atm_bank_df['demographic_branch_penetration'] = pd.to_numeric(atm_bank_df['demographic_branch_penetration'], downcast='float')
 atm_bank_df['geographic_atm_penetration'] = pd.to_numeric(atm_bank_df['geographic_atm_penetration'], downcast='float')
-atm_bank_df['geographic_atm_penetration'] = pd.to_numeric(atm_bank_df['demographic_atm_penetration'], downcast='float')
+atm_bank_df['demographic_atm_penetration'] = pd.to_numeric(atm_bank_df['demographic_atm_penetration'], downcast='float')
 
 df_list = [urban_df, internet_df, broadband_df, cellular_df, fi_young_df, fi_df, fi_old_df, fi_primary_df, fi_secondary_df, fi_rich_df, fi_poor_df]
 clean_dfs = preprocess_df(df_list)
@@ -123,7 +123,7 @@ default_countries = [
     'Korea, Rep.', 'Malaysia', 'Thailand'
 ]
 st.set_page_config(page_title="TGP Dashboard", layout="wide")
-st.title("Digital Reach & Financial Access Dashboard for PayNet")
+st.title("Digital Reach & Financial Access Dashboard for PayNet Malaysia")
 
 # Create a region filter
 regions = ['All'] + sorted(dim_country_df['region'].dropna().unique())
@@ -578,7 +578,7 @@ if not filtered_urban_df.empty:
       st.altair_chart(demo_branch_chart, use_container_width=True)
 
     with col3:
-      st.altair_chart(demo_atm_chart, use_container_width=True)
+      st.altair_chart(geo_atm_chart, use_container_width=True)
 
     with col4:
       st.altair_chart(demo_atm_chart, use_container_width=True)
