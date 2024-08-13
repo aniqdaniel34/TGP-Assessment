@@ -1,0 +1,14 @@
+1. CI/CD Pipeline Implementation (AWS CodePipeline):
+
+Developed and configured the CI/CD pipeline using AWS CodePipeline.
+Integrated various stages including source, build, and deployment to automate the deployment process.
+Set up an S3 bucket for artifact storage and configured the pipeline to use this bucket.
+Managed IAM roles and permissions to ensure secure and smooth pipeline execution.
+Ensured the pipeline included a rollback mechanism in case of deployment failures.
+
+2. Performance Monitoring Setup (AWS CloudWatch):
+
+Configured AWS CloudWatch to monitor the performance of the microservices.
+Set up metrics and alarms to track key performance indicators (KPIs) of the application.
+Implemented logging and monitoring to ensure real-time insights into application performance.
+Created dashboards in CloudWatch to visualize the performance data for easier monitoring.
