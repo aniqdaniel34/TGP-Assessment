@@ -35,10 +35,6 @@ Application Hosting: The Python application, which utilizes the Streamlit framew
 Synchronization with S3: The EC2 instance is linked to an application stored in an S3 bucket, connected through a CodePipeline to the GitHub repository. A script on the EC2 instance is configured to synchronize with the S3 bucket every five minutes, ensuring the application remains updated with the latest code.
 Scalability: EC2 instances can be scaled up or down depending on the application’s demands. This scalability ensures that the system can handle varying levels of traffic and computational requirements, optimizing performance and resource utilization.
 
-
-
-
-
 6. Amazon CloudWatch
 Purpose: Amazon CloudWatch is a monitoring and observability service designed to provide real-time insights into the performance and health of AWS resources.
 Functionality:
